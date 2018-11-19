@@ -34,7 +34,7 @@ Useful for debugging your circuit.
 
 **NOTE:** I'm using stretch (Debian 9), so this installs LIRC 0.9.4c. 0.9.4 is
 quite different from 0.9.0, which is what you'll get if you're running jessie
-(Debian 8). If you have 0.9.0 Step 3 will be different [1].
+(Debian 8). If you have 0.9.0 Step 3 will be different<sup>1</sup>.
 
 ### Step 2: Enable `lirc-rpi` kernel module
 
@@ -108,8 +108,8 @@ between the default config and my config:
 
 
 **DO NOT** edit or add `hardware.conf`. Other tutorials may mention making
-changes to `/etc/lirc/hardware.conf`. LIRC 0.9.4 does not use `hardware.conf`
-[2].
+changes to `/etc/lirc/hardware.conf`. LIRC 0.9.4 does not use
+`hardware.conf`<sup>2</sup>.
 
 ### Step 4: Add remote control config files
 
@@ -177,7 +177,65 @@ up.
 
 ## Control via voice commands
 
-TODO
+**NOTE:** I built this before Google launched [smart home Actions](https://developers.google.com/actions/smarthome/).
+At the time there were only conversation-based Actions, which don't fit this use
+case. A smart home Action is a better solution than what I describe below.
+
+I wanted to issue IR codes by voice, so I did the following:
+- Wrote a web server that runs on the Raspberry Pi. It exposes one endpoint for
+  each IR code (e.g. /volup to turn up the volume), and `POST`ing to the
+  endpoint will call the `irsend` command line utility to issue the code. See
+  below for more info on deploying the web server.
+- Exposed the web server to the internet using [ngrok](https://ngrok.com/).
+  The docs are great so I leave this step as an exercise for the reader.
+- Use [IFTTT webhooks](https://ifttt.com/maker_webhooks) to set up rules such
+  that when I say something like "Ok Google, it's music time" to my Google Home,
+  IFTTT fires off a request to the ngrok endpoint that points to the Raspberry
+  Pi, instructing it to issue the IR code that turns on the sound system.
+
+### Build the server
+
+The server is written in Go. The main package is `cmd/server/main.go`. This repo
+includes a Makefile that builds it for your host architecture as well as ARMv6
+(e.g. Raspberry Pi Zero W) and ARMv7 (e.g. Raspberry Pi 3 B<sup>3</sup>). It
+will produce binaries in the `out` directory.
+
+### Security!
+
+**NOTE:** Again, I built this before Google launched
+[smart home Actions](https://developers.google.com/actions/smarthome/). Using
+smart home Actions is the most secure and elegant way to do this.
+
+Security is good. The knobs available to us aren't great [insert rant here about
+the current state of IoT security] but we'll do what we can to lock it down.
+
+- ngrok ([config options here](https://ngrok.com/docs#config))
+    - ngrok can do HTTP basic auth. Use it. Of course the password is in the
+      clear in your IFTTT rule but it's better than nothing.
+    - Set `bind_tls: true` in your config to expose only an HTTPS endpoint.
+    - Set `inspect: false` in your config to disable request inspection.
+- Web server
+    - The web server has a basic token check built in. In the JSON payload
+      `POST`ed by IFTTT, include a `token` key. If its value doesn't match
+      the token defined on the Raspberry Pi it will stop and return a 403.
+
+That's all that's possible as far as I can tell. IFTTT webhooks don't allow for
+any kind of secure token authentication.
+
+### Running the server
+
+The web server is a statically linked binary. We'll use systemd to start it up
+and keep it running.
+
+1. Place the `server` binary built for your required architecture in `/home/pi`.
+2. This repo contains a systemd service definition at `config/systemd/irremote.service`.
+   Copy it into the `/lib/systemd/system` directory on the Raspberry Pi.
+3. To enable and start the service, run
+
+   ```
+   sudo systemctl enable irremote.service
+   sudo systemctl start irremote.service
+   ```
 
 ## Footnotes
 [1] Other projects around the internet tend to be built using 0.9.0, leading to
@@ -187,3 +245,7 @@ experience. I hope this project can help others in the same boat!
 [2] Alec Leamas, LIRC maintainer, states
 [here](http://lirc.10951.n7.nabble.com/Re-lirc-installation-on-raspberry-pi-running-Raspbian-jessie-tp10721p10725.html)
 that "0.9.4 does not use hardware.conf."
+
+[3] "How can this be!? The Raspberry Pi 3 B uses the BCM2837, a 64-bit ARMv8
+SoC!" you exclaim. "That is correct," I reply, "but Raspbian is 32-bit only so
+the chip runs in 32-bit mode. It therefore cannot execute ARMv8 binaries."
