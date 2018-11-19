@@ -1,0 +1,16 @@
+# /lib/systemd/system/irremote.service
+# sudo systemctl enable irremote.service
+[Unit]
+Description=irremote
+ConditionPathExists=/home/pi/server
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=2
+User=pi
+Group=pi
+ExecStart=/home/pi/server
+
+[Install]
+WantedBy=multi-user.target
