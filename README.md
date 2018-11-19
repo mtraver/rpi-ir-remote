@@ -1,5 +1,7 @@
 # Raspberry Pi IR Remote Control
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/mtraver/rpi-ir-remote)](https://goreportcard.com/report/github.com/mtraver/rpi-ir-remote)
+
 Goals:
 1. Using a Raspberry Pi and an IR LED, send IR codes to control audio/video
    equipment.
