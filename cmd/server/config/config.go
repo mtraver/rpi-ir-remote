@@ -10,7 +10,10 @@ import (
 	filepath "path"
 )
 
-const defaultPort = 8080
+const (
+	defaultAPIPort   = 9090
+	defaultWebUIPort = 8080
+)
 
 var (
 	currUsr          *user.User
@@ -28,8 +31,9 @@ func init() {
 }
 
 type Config struct {
-	Token string `json:"token"`
-	Port  int    `json:"port"`
+	Token     string `json:"token"`
+	Port      int    `json:"port"`
+	WebUIPort int    `json:"webui_port"`
 }
 
 func (c Config) String() string {
@@ -42,7 +46,8 @@ func (c Config) String() string {
 
 func Default() Config {
 	return Config{
-		Port: defaultPort,
+		Port:      defaultAPIPort,
+		WebUIPort: defaultWebUIPort,
 	}
 }
 
@@ -77,7 +82,11 @@ func Load(path string) (Config, error) {
 	}
 
 	if config.Port == 0 {
-		config.Port = defaultPort
+		config.Port = defaultAPIPort
+	}
+
+	if config.WebUIPort == 0 {
+		config.WebUIPort = defaultWebUIPort
 	}
 
 	return config, readErr

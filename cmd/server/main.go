@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
@@ -18,10 +19,43 @@ import (
 const (
 	volumeIncMax   = 5
 	volumeIncDelay = 0.3
+
+	indexTemplate = `
+<!doctype html>
+<html lang="en">
+	<head>
+	  <meta charset="utf-8">
+	  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	  <title>RPi IR Remote</title>
+	</head>
+	<body>
+		<p>Did you know that the wavelength of infrared radiation ranges from about 800 nm to 1 mm?</p>
+		<p>Remote: {{ .Remote.Name }}</p>
+
+		{{ range $name, $command := .Remote.Commands }}
+			<button type="button" class="button" name="{{ $name }}" id="button-{{ $name }}">{{ $name }}</button>
+			<br>
+			<br>
+		{{ end }}
+	</body>
+
+	<script type="text/javascript">
+		var buttons = document.getElementsByClassName('button');
+		for (var i = 0; i < buttons.length; i++) {
+			buttons[i].addEventListener('click', event => {
+				fetch('/' + event.srcElement.getAttribute('name'), {method: 'POST'});
+			});
+		}
+	</script>
+</html>
+`
 )
 
 var (
 	configFilePath string
+
+	templates = template.Must(template.New("index").Parse(indexTemplate))
 )
 
 func init() {
@@ -84,14 +118,26 @@ func (h irsendHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, fmt.Sprintf("%v OK", h.Cmd))
 }
 
-func indexHandler(w http.ResponseWriter, r *http.Request) {
+type indexHandler struct {
+	Remote remote.Remote
+	Config serverconfig.Config
+}
+
+func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	io.WriteString(w, "Did you know that the wavelength of infrared radiation ranges from about 800 nm to 1 mm?")
+	data := struct {
+		Remote remote.Remote
+		Config serverconfig.Config
+	}{
+		Remote: h.Remote,
+		Config: h.Config,
+	}
+
+	templates.ExecuteTemplate(w, "index", data)
 }
 
 func main() {
@@ -105,18 +151,39 @@ func main() {
 
 	r := cambridgecxacn.New()
 
-	http.HandleFunc("/", indexHandler)
+	webuiMux := http.NewServeMux()
+	webuiMux.Handle("/", indexHandler{
+		Remote: r,
+		Config: config,
+	})
+
+	apiMux := http.NewServeMux()
 	for name := range r.Commands {
-		http.Handle(fmt.Sprintf("/%v", name), irsendHandler{
+		apiMux.Handle(fmt.Sprintf("/%v", name), irsendHandler{
 			Remote:     r,
 			Config:     config,
 			Cmd:        name,
 			CheckToken: true,
 		})
+
+		webuiMux.Handle(fmt.Sprintf("/%v", name), irsendHandler{
+			Remote:     r,
+			Config:     config,
+			Cmd:        name,
+			CheckToken: false,
+		})
 	}
 
-	log.Printf("Listening on port %v", config.Port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%v", config.Port), nil); err != nil {
+	go func() {
+		log.Printf("Web UI server listening on port %v", config.WebUIPort)
+		if err := http.ListenAndServe(fmt.Sprintf(":%v", config.WebUIPort), webuiMux); err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
+	}()
+
+	log.Printf("API server listening on port %v", config.Port)
+	if err := http.ListenAndServe(fmt.Sprintf(":%v", config.Port), apiMux); err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
