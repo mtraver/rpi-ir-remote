@@ -33,7 +33,14 @@ type irRemoteRequest struct {
 	Increment int    `json:"increment"`
 }
 
-func checkToken(r *http.Request, token string) error {
+type irsendHandler struct {
+	Remote     remote.Remote
+	Config     serverconfig.Config
+	Cmd        string
+	CheckToken bool
+}
+
+func (h irsendHandler) checkToken(r *http.Request) error {
 	if r.Method == "POST" {
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -46,7 +53,7 @@ func checkToken(r *http.Request, token string) error {
 			return err
 		}
 
-		if req.Token != token {
+		if req.Token != h.Config.Token {
 			return fmt.Errorf("irremote: bad token")
 		}
 	} else {
@@ -56,33 +63,25 @@ func checkToken(r *http.Request, token string) error {
 	return nil
 }
 
-func tokenWrapper(f http.HandlerFunc, token string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		err := checkToken(r, token)
-		if err != nil {
+func (h irsendHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if h.CheckToken {
+		if err := h.checkToken(r); err != nil {
 			log.Printf("Token check failed: %v", err)
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-
-		f.ServeHTTP(w, r)
 	}
-}
 
-func irsendHandler(rmt remote.Remote, cmd string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Received request: %v %v", rmt.Name, cmd)
+	log.Printf("Received request: %v %v", h.Remote.Name, h.Cmd)
 
-		err := rmt.Send(cmd)
-		if err != nil {
-			log.Printf("Failed to send command %q to %q: %v", cmd, rmt.Name, err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		io.WriteString(w, fmt.Sprintf("%v OK", cmd))
+	if err := h.Remote.Send(h.Cmd); err != nil {
+		log.Printf("Failed to send command %q to %q: %v", h.Cmd, h.Remote.Name, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	io.WriteString(w, fmt.Sprintf("%v OK", h.Cmd))
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +107,12 @@ func main() {
 
 	http.HandleFunc("/", indexHandler)
 	for name := range r.Commands {
-		http.HandleFunc(fmt.Sprintf("/%v", name), tokenWrapper(irsendHandler(r, name), config.Token))
+		http.Handle(fmt.Sprintf("/%v", name), irsendHandler{
+			Remote:     r,
+			Config:     config,
+			Cmd:        name,
+			CheckToken: true,
+		})
 	}
 
 	log.Printf("Listening on port %v", config.Port)
