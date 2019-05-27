@@ -1,6 +1,7 @@
 package main
 
 const indexTemplate = `
+{{ define "index" }}
 <!doctype html>
 <html lang="en">
 	<head>
@@ -38,4 +39,5 @@ const indexTemplate = `
 		}
 	</script>
 </html>
+{{ end }}
 `
