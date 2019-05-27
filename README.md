@@ -38,7 +38,11 @@ Useful for debugging your circuit.
 quite different from 0.9.0, which is what you'll get if you're running jessie
 (Debian 8). If you have 0.9.0 Step 3 will be different<sup>1</sup>.
 
-### Step 2: Enable `lirc-rpi` kernel module
+### Step 2: Enable `lirc-rpi` or `gpio-ir` kernel module
+
+**NOTE:** Whether you enable `lirc-rpi` or `gpio-ir` depends on the kernel version you're using
+(check with `uname -a`). On 4.14 you'll use `lirc-rpi` and on 4.19 you'll use `gpio-ir`. Instructions
+for both cases are given below. See the Appendix if you'd like to read more about this.
 
 We're going to do this via the device tree by editing `/boot/config.txt`.
 
@@ -49,17 +53,22 @@ You'll see these lines in `config.txt`:
     # Uncomment this to enable the lirc-rpi module
     #dtoverlay=lirc-rpi
 
-Change them to look like this:
+If you're on **kernel version 4.14**, uncomment the `dtoverlay` line and change it to look like this:
 
-    # Uncomment this to enable the lirc-rpi module
     dtoverlay=lirc-rpi,gpio_in_pin=22,gpio_out_pin=23
 
-See how `gpio_out_pin` is set to 23? If you're not using pin 23 change that.
-You can ignore `gpio_in_pin`. It's used for an IR receiver. TODO(mtraver)
-document that if I ever actually use the receiver for anything.
+If you're on **kernel version 4.19**, add these lines (you can leave any lines containing `lirc-rpi` commented out, or you can remove them):
+
+    dtoverlay=gpio-ir,gpio_pin=22
+    dtoverlay=gpio-ir-tx,gpio_pin=23
+
+See how `gpio_out_pin` / `gpio-ir-tx`'s `gpio_pin` is set to 23? If you're not using pin 23 change that.
+You can ignore `gpio_in_pin` / `gpio-ir`'s `gpio_pin`. It's used for an IR receiver.
+TODO(mtraver) document that if I ever actually use the receiver for anything.
 
 Optional: To enable more verbose logging (which you'll find in `dmesg`), add
-`debug=1` like this:
+`debug=1` like this (as long as you're on 4.14; adding `debug=1` didn't seem to
+change the behavior of `gpio-ir` on 4.19):
 
     # Uncomment this to enable the lirc-rpi module
     dtoverlay=lirc-rpi,gpio_in_pin=22,gpio_out_pin=23,debug=1
@@ -140,7 +149,9 @@ Here's what my config directory looks like:
 
     sudo reboot
 
-Some sanity checks for modules and services and stuff after you reboot:
+Below are some sanity checks for modules and services and stuff after you reboot.
+
+On **kernel version 4.14** using `lirc-rpi`:
 
     $ dmesg | grep lirc
     [    3.276240] lirc_dev: IR Remote Control driver registered, major 243
@@ -164,6 +175,28 @@ Some sanity checks for modules and services and stuff after you reboot:
     root       516  0.4  0.4   7316  3980 ?        Ss   17:09   0:00 /usr/sbin/lircd --nodaemon
     root       517  0.0  0.1   4284  1164 ?        Ss   17:09   0:00 /usr/sbin/lircd-uinput
     pi         574  0.0  0.0   4372   552 pts/0    S+   17:09   0:00 grep --color=auto lirc
+
+On **kernel version 4.19** using `gpio-ir`:
+
+    $ dmesg | grep "lirc\|gpio-ir"
+    [    3.459164] rc rc0: GPIO IR Bit Banging Transmitter as /devices/platform/gpio-ir-transmitter@17/rc/rc0
+    [    3.459396] rc rc0: lirc_dev: driver gpio-ir-tx registered at minor = 0, no receiver, raw IR transmitter
+    [    3.522934] rc rc1: lirc_dev: driver gpio_ir_recv registered at minor = 1, raw IR receiver, no transmitter
+    [   14.468862] input: lircd-uinput as /devices/virtual/input/input1
+
+    $ lsmod | grep gpio_ir
+    gpio_ir_tx             16384  0
+    gpio_ir_recv           16384  0
+
+    $ ll /dev/lirc0
+    crw-rw---- 1 root video 252, 0 May 26 17:10 /dev/lirc0
+
+    $ ps aux | grep lirc
+    root       364  0.0  0.1   4268  1088 ?        Ss   17:11   0:00 /usr/sbin/lircmd --nodaemon
+    root       369  0.0  0.1   4196  1072 ?        Ss   17:11   0:00 /usr/bin/irexec /etc/lirc/irexec.lircrc
+    root       555  0.1  0.3   7296  3428 ?        Ss   17:11   0:00 /usr/sbin/lircd --nodaemon
+    root       556  0.0  0.1   4272  1172 ?        Ss   17:11   0:00 /usr/sbin/lircd-uinput
+    pi         893  0.0  0.0   4368   544 pts/0    S+   17:13   0:00 grep --color=auto lirc
 
 ### Step 6: Test
 
@@ -238,6 +271,57 @@ and keep it running.
    sudo systemctl enable irremote.service
    sudo systemctl start irremote.service
    ```
+
+## Appendix
+
+### `Warning: Cannot access device: /dev/lirc0` on kernel 4.19
+
+**NOTE:** This is just a record of my debugging process from when I upgraded to 4.19 and
+LIRC stopped working. All actions required for 4.19 are already included above.
+
+On 2019-05-25 I upgraded my pi and it ended up on
+`Linux 4.19.42-v7+ #1219 SMP Tue May 14 21:20:58 BST 2019 armv7l`.
+
+LIRC no longer worked! Checking the logs I found this:
+
+    $ grep lirc /var/log/syslog
+    ...
+    May 25 15:27:01 irremote-pi lircd-0.9.4c[793]: Warning: Cannot access device: /dev/lirc0
+    ...
+
+Thankfully I had checked the kernel version before upgrading. It was
+`Linux 4.14.52-v7+ #1123 SMP Wed Jun 27 17:35:49 BST 2018 armv7l`.
+
+As a first step I tried rolling back to that version using `rpi-update`. I found the commit
+in [github.com/Hexxeh/rpi-firmware](https://github.com/Hexxeh/rpi-firmware/commits/master)
+that upgraded to 4.14.52 and passed that commit hash to `rpi-update` to roll back:
+
+
+    sudo rpi-update 963a31330613a38e160dc98b708c662dd32631d5
+
+
+After rebooting, the kernel was indeed rolled back and LIRC worked again.
+
+Alright, now time to find the breaking commit!
+
+First I jumped straight to the last 4.14: `kernel: Bump to 4.14.98` (`a08ece3d48c3c40bf1b501772af9933249c11c5b`, committed 2019-02-12).
+This put me on `Linux 4.14.98-v7+ #1200 SMP Tue Feb 12 20:27:48 GMT 2019 armv7l GNU/Linux` and LIRC worked. Woohoo!
+
+The next update goes all the way to 4.19.23. I upgraded to `1c60d16af8cc43214495f18549228dde83e99265` and ended up
+on `Linux 4.19.23-v7+ #1202 SMP Mon Feb 18 15:55:19 GMT 2019 armv7l GNU/Linux`. LIRC did not work;
+the warning about `/dev/lirc0` was back.
+
+#### `gpio-ir` on 4.19
+
+I was all set to call it a day and leave my pi on 4.14, but then I found this:
+https://www.raspberrypi.org/forums/viewtopic.php?t=235256.
+
+The TL;DR is that 4.19 does not include `lirc_dev` so one must use `gpio-ir`. It's simply a change to
+the `dtoverlay` in `/boot/config.txt` and it works as before. For sending IR codes that's all that's required.
+
+For recording there's more to do but I'll leave it as an exercise for the reader to follow the instructions
+in the aforementioned raspberrypi.org forum post. For me sending IR codes worked both with and without the
+patched LIRC; I don't record IR codes in this project so I stuck with the stock, unpatched LIRC.
 
 ## Footnotes
 [1] Other projects around the internet tend to be built using 0.9.0, leading to
