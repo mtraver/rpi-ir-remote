@@ -37,11 +37,12 @@ type Config struct {
 }
 
 func (c Config) String() string {
-	if s, err := json.Marshal(c); err == nil {
+	s, err := json.Marshal(c)
+	if err == nil {
 		return string(s)
-	} else {
-		return fmt.Sprintf("Failed to marshal Config: %v", err)
 	}
+
+	return fmt.Sprintf("Failed to marshal Config: %v", err)
 }
 
 func Default() Config {
