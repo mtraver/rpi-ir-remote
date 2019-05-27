@@ -272,6 +272,14 @@ and keep it running.
    sudo systemctl start irremote.service
    ```
 
+### Running ngrok
+
+There is also a systemd service definition for ngrok in `config/systemd`. Follow the same steps
+as above to install and enable it.
+
+The service definition assumes that the ngrok binary is at `/usr/local/bin/ngrok`. Change the service
+definition (both `ConditionPathExists` and `ExecStart`) if you'd like ngrok to live somewhere else.
+
 ## Appendix
 
 ### `Warning: Cannot access device: /dev/lirc0` on kernel 4.19

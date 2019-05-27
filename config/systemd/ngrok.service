@@ -1,0 +1,16 @@
+# /lib/systemd/system/ngrok.service
+# sudo systemctl enable ngrok.service
+[Unit]
+Description=ngrok
+ConditionPathExists=/usr/local/bin/ngrok
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=2
+User=pi
+Group=pi
+ExecStart=/usr/local/bin/ngrok start --all
+
+[Install]
+WantedBy=multi-user.target
