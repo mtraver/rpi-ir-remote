@@ -18,7 +18,7 @@ const indexTemplate = `
 	<body>
 		<div class="container mt-1">
 			<div class="col-sm text-center">
-				<p>Did you know that the wavelength of infrared radiation ranges from about 800 nm to 1 mm?</p>
+				<p><b>Fun fact!</b> {{ .FunFact }}</p>
 				<p>Remote: {{ .Remote.Name }}</p>
 
 				{{ range $name, $command := .Remote.Commands }}
@@ -41,3 +41,13 @@ const indexTemplate = `
 </html>
 {{ end }}
 `
+
+var funFacts = []string{
+	"The wavelength of infrared radiation ranges from about 700 nm to 1 mm.",
+	"Infrared cleaning is a technique used by some film scanners and flatbed scanners to reduce or remove the effect of dust and scratches upon the finished scan.",
+	"The ability to sense infrared thermal radiation evolved independently in two different groups of snakes, Boidae (boas and pythons) and Crotalinae (pit vipers).",
+	"The discovery of infrared radiation is ascribed to William Herschel in the early 19th century. He called infrared radiation \"calorific rays\".",
+	"Humans at normal body temperature radiate chiefly at wavelengths around 10 μm.",
+	"Sunlight is composed of near-thermal-spectrum radiation that is slightly more than half infrared.",
+	"Infrared reflectography can be applied to paintings to reveal underlying layers in a non-destructive manner, in particular the underdrawing or outline drawn by the artist as a guide.",
+}

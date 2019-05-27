@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 
@@ -99,11 +100,13 @@ func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Remote remote.Remote
-		Config serverconfig.Config
+		Remote  remote.Remote
+		Config  serverconfig.Config
+		FunFact string
 	}{
-		Remote: h.Remote,
-		Config: h.Config,
+		Remote:  h.Remote,
+		Config:  h.Config,
+		FunFact: funFacts[rand.Intn(len(funFacts))],
 	}
 
 	templates.ExecuteTemplate(w, "index", data)
