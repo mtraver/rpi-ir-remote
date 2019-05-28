@@ -11,6 +11,12 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/mtraver/iotcore"
 
 	serverconfig "github.com/mtraver/rpi-ir-remote/cmd/server/config"
 	"github.com/mtraver/rpi-ir-remote/remote"
@@ -24,12 +30,16 @@ const (
 
 var (
 	configFilePath string
+	deviceFilePath string
+	caCerts        string
 
 	templates = template.Must(template.New("index").Parse(indexTemplate))
 )
 
 func init() {
 	flag.StringVar(&configFilePath, "config", "", "path to config file")
+	flag.StringVar(&deviceFilePath, "device", "", "path to Google Cloud IoT core device config file")
+	flag.StringVar(&caCerts, "cacerts", "", "Path to a set of trustworthy CA certs.\nDownload Google's from https://pki.google.com/roots.pem.")
 }
 
 type irRemoteRequest struct {
@@ -112,13 +122,74 @@ func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	templates.ExecuteTemplate(w, "index", data)
 }
 
+func commandHandler(client mqtt.Client, msg mqtt.Message) {
+	// TODO(mtraver) Actually handle the message.
+	log.Printf("commandHandler: topic: %q, payload: %v", msg.Topic(), msg.Payload())
+	msg.Ack()
+}
+
+func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
+	client, err := newClient(device)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to make MQTT client: %v", err)
+	}
+
+	// Connect to the MQTT server.
+	waitDur := 10 * time.Second
+	token := client.Connect()
+	if ok := token.WaitTimeout(waitDur); !ok {
+		return nil, fmt.Errorf("MQTT connection attempt timed out after %v", waitDur)
+	} else if token.Error() != nil {
+		return nil, fmt.Errorf("Failed to connect to MQTT server: %v", token.Error())
+	}
+
+	// Subscribe to the command topic.
+	token = client.Subscribe(device.CommandTopic(), 1, commandHandler)
+	if ok := token.WaitTimeout(waitDur); !ok {
+		return nil, fmt.Errorf("Subscription attempt to command topic %s timed out after %v", device.CommandTopic(), waitDur)
+	} else if token.Error() != nil {
+		return nil, fmt.Errorf("Failed to subscribe to command topic %s: %v", device.CommandTopic(), token.Error())
+	}
+
+	return client, nil
+}
+
 func main() {
 	flag.Parse()
+	if deviceFilePath != "" && caCerts == "" {
+		fmt.Fprintf(flag.CommandLine.Output(), "-cacerts is required when -device is given\n")
+		flag.Usage()
+		os.Exit(2)
+	}
 
 	config, err := serverconfig.Load(configFilePath)
 	if err != nil {
-		log.Printf("Failed to parse config file %v: %v", configFilePath, err)
-		os.Exit(1)
+		log.Fatalf("Failed to parse config file %s: %v", configFilePath, err)
+	}
+
+	// If an MQTT device config is given, connect to MQTT and subscribe to the command topic.
+	if deviceFilePath != "" {
+		device, err := parseDeviceConfig(deviceFilePath)
+		if err != nil {
+			log.Fatalf("Failed to parse device config file: %v", err)
+		}
+
+		client, err := mqttConnect(device)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Connected to MQTT broker")
+
+		// If the program is killed, disconnect from the MQTT server.
+		c := make(chan os.Signal, 2)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-c
+			log.Println("Cleaning up...")
+			client.Disconnect(250)
+			time.Sleep(500 * time.Millisecond)
+			os.Exit(1)
+		}()
 	}
 
 	r := cambridgecxacn.New()
@@ -154,6 +225,7 @@ func main() {
 		}
 	}()
 
+	// TODO(mtraver) If we're using MQTT we shouldn't start the API HTTP server.
 	log.Printf("API server listening on port %v", config.Port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%v", config.Port), apiMux); err != nil {
 		log.Println(err)
