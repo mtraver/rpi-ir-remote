@@ -217,17 +217,17 @@ func main() {
 		})
 	}
 
+	// TODO(mtraver) If we're using MQTT we shouldn't start the API HTTP server.
 	go func() {
-		log.Printf("Web UI server listening on port %v", config.WebUIPort)
-		if err := http.ListenAndServe(fmt.Sprintf(":%v", config.WebUIPort), webuiMux); err != nil {
+		log.Printf("API server listening on port %v", config.Port)
+		if err := http.ListenAndServe(fmt.Sprintf(":%v", config.Port), apiMux); err != nil {
 			log.Println(err)
 			os.Exit(1)
 		}
 	}()
 
-	// TODO(mtraver) If we're using MQTT we shouldn't start the API HTTP server.
-	log.Printf("API server listening on port %v", config.Port)
-	if err := http.ListenAndServe(fmt.Sprintf(":%v", config.Port), apiMux); err != nil {
+	log.Printf("Web UI server listening on port %v", config.WebUIPort)
+	if err := http.ListenAndServe(fmt.Sprintf(":%v", config.WebUIPort), webuiMux); err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
