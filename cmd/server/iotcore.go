@@ -73,11 +73,6 @@ func existingJWT(device iotcore.Device) (string, error) {
 }
 
 func newClient(device iotcore.Device) (mqtt.Client, error) {
-	mqttOptions, err := iotcore.NewMQTTOptions(device, iotcore.DefaultBroker, caCerts)
-	if err != nil {
-		return nil, err
-	}
-
 	jwt, err := existingJWT(device)
 	if err != nil {
 		jwt, err = device.NewJWT(60 * time.Minute)
@@ -90,7 +85,11 @@ func newClient(device iotcore.Device) (mqtt.Client, error) {
 			log.Printf("Failed to save JWT to %s: %v", jwtPath, err)
 		}
 	}
-	mqttOptions.SetPassword(jwt)
+
+	mqttOptions, err := iotcore.NewMQTTOptions(device, jwt, iotcore.DefaultBroker, caCerts)
+	if err != nil {
+		return nil, err
+	}
 
 	return mqtt.NewClient(mqttOptions), nil
 }
