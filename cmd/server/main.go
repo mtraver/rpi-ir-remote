@@ -129,7 +129,13 @@ func commandHandler(client mqtt.Client, msg mqtt.Message) {
 }
 
 func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
-	client, err := newClient(device)
+	certsFile, err := os.Open(caCerts)
+	if err != nil {
+		return nil, err
+	}
+	defer certsFile.Close()
+
+	client, err := device.NewClient(iotcore.DefaultBroker, certsFile, iotcore.CacheJWT(60*time.Minute))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to make MQTT client: %v", err)
 	}
