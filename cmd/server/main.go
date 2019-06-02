@@ -38,7 +38,7 @@ var (
 
 func init() {
 	flag.StringVar(&configFilePath, "config", "", "path to config file")
-	flag.StringVar(&deviceFilePath, "device", "", "path to Google Cloud IoT core device config file")
+	flag.StringVar(&deviceFilePath, "device", "", "path to a file containing a JSON-encoded Device struct (see github.com/mtraver/iotcore)")
 	flag.StringVar(&caCerts, "cacerts", "", "Path to a set of trustworthy CA certs.\nDownload Google's from https://pki.google.com/roots.pem.")
 }
 
