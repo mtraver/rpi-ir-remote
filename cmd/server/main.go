@@ -142,16 +142,14 @@ func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
 
 	// Connect to the MQTT server.
 	waitDur := 10 * time.Second
-	token := client.Connect()
-	if ok := token.WaitTimeout(waitDur); !ok {
+	if token := client.Connect(); !token.WaitTimeout(waitDur) {
 		return nil, fmt.Errorf("MQTT connection attempt timed out after %v", waitDur)
 	} else if token.Error() != nil {
 		return nil, fmt.Errorf("Failed to connect to MQTT server: %v", token.Error())
 	}
 
 	// Subscribe to the command topic.
-	token = client.Subscribe(device.CommandTopic(), 1, commandHandler)
-	if ok := token.WaitTimeout(waitDur); !ok {
+	if token := client.Subscribe(device.CommandTopic(), 1, commandHandler); !token.WaitTimeout(waitDur) {
 		return nil, fmt.Errorf("Subscription attempt to command topic %s timed out after %v", device.CommandTopic(), waitDur)
 	} else if token.Error() != nil {
 		return nil, fmt.Errorf("Failed to subscribe to command topic %s: %v", device.CommandTopic(), token.Error())
