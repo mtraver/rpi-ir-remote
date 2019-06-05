@@ -1,0 +1,15 @@
+syntax = "proto3";
+package irremote;
+option go_package = "irremotepb";
+
+message Action {
+  string remote_id = 1;
+  string command = 2;
+  int32 repeat = 3;
+}
+
+message Request {
+  string device_id = 1;
+  string jwt = 2;
+  Action action = 3;
+}

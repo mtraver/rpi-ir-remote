@@ -13,3 +13,6 @@
 
 # Build output
 out
+
+# Keys
+*.pem

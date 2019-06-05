@@ -1,0 +1,15 @@
+runtime: go111
+main: web
+
+env_variables:
+  IOTCORE_REGISTRY: 'TODO'
+  IOTCORE_REGION: 'TODO'
+  PUB_KEY_PATH: 'TODO'
+
+handlers:
+- url: /action
+  script: auto
+  secure: always
+- url: /.*
+  script: auto
+  secure: always

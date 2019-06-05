@@ -16,9 +16,11 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/golang/protobuf/proto"
 	"github.com/mtraver/iotcore"
 
 	serverconfig "github.com/mtraver/rpi-ir-remote/cmd/server/config"
+	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
 	"github.com/mtraver/rpi-ir-remote/remote"
 	"github.com/mtraver/rpi-ir-remote/remote/cambridgecxacn"
 )
@@ -124,8 +126,16 @@ func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func commandHandler(client mqtt.Client, msg mqtt.Message) {
 	// TODO(mtraver) Actually handle the message.
-	log.Printf("commandHandler: topic: %q, payload: %v", msg.Topic(), msg.Payload())
 	msg.Ack()
+
+	var action ipb.Action
+	err := proto.Unmarshal(msg.Payload(), &action)
+	if err != nil {
+		log.Printf("Failed to unmarshal Action: %v", err)
+		return
+	}
+
+	log.Printf("commandHandler: topic: %q, action: %v", msg.Topic(), action)
 }
 
 func mqttConnect(device iotcore.Device) (mqtt.Client, error) {

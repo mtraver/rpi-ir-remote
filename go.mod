@@ -6,4 +6,6 @@ require (
 	github.com/golang/protobuf v1.3.1
 	github.com/mtraver/gaelog v0.0.0-20190604043210-43ade6a798e7
 	github.com/mtraver/iotcore v0.0.0-20190602214525-ee4988ff1b0a
+	golang.org/x/oauth2 v0.0.0-20190523182746-aaccbc9213b0
+	google.golang.org/api v0.5.0
 )
