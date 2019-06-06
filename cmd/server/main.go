@@ -138,6 +138,24 @@ func commandHandler(client mqtt.Client, msg mqtt.Message) {
 	log.Printf("commandHandler: topic: %q, action: %v", msg.Topic(), action)
 }
 
+func onConnect(device iotcore.Device, opts *mqtt.ClientOptions) error {
+	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		log.Printf("Connected to MQTT broker")
+
+		// Subscribe to the command topic.
+		topic := device.CommandTopic()
+		waitDur := 10 * time.Second
+		if token := client.Subscribe(topic, 1, commandHandler); !token.WaitTimeout(waitDur) {
+			log.Printf("Subscription attempt to command topic %s timed out after %v", topic, waitDur)
+		} else if token.Error() != nil {
+			log.Printf("Failed to subscribe to command topic %s: %v", topic, token.Error())
+		} else {
+			log.Printf("Subscribed to command topic %s", topic)
+		}
+	})
+	return nil
+}
+
 func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
 	certsFile, err := os.Open(caCerts)
 	if err != nil {
@@ -145,7 +163,7 @@ func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
 	}
 	defer certsFile.Close()
 
-	client, err := device.NewClient(iotcore.DefaultBroker, certsFile, iotcore.CacheJWT(60*time.Minute))
+	client, err := device.NewClient(iotcore.DefaultBroker, certsFile, iotcore.CacheJWT(60*time.Minute), onConnect)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to make MQTT client: %v", err)
 	}
@@ -156,13 +174,6 @@ func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
 		return nil, fmt.Errorf("MQTT connection attempt timed out after %v", waitDur)
 	} else if token.Error() != nil {
 		return nil, fmt.Errorf("Failed to connect to MQTT server: %v", token.Error())
-	}
-
-	// Subscribe to the command topic.
-	if token := client.Subscribe(device.CommandTopic(), 1, commandHandler); !token.WaitTimeout(waitDur) {
-		return nil, fmt.Errorf("Subscription attempt to command topic %s timed out after %v", device.CommandTopic(), waitDur)
-	} else if token.Error() != nil {
-		return nil, fmt.Errorf("Failed to subscribe to command topic %s: %v", device.CommandTopic(), token.Error())
 	}
 
 	return client, nil
@@ -192,7 +203,6 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("Connected to MQTT broker")
 
 		// If the program is killed, disconnect from the MQTT server.
 		c := make(chan os.Signal, 2)
