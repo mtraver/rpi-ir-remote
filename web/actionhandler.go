@@ -12,8 +12,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/mtraver/gaelog"
 	"github.com/mtraver/iotcore"
-	"golang.org/x/oauth2/google"
 	cloudiot "google.golang.org/api/cloudiot/v1"
+	"google.golang.org/api/option"
 
 	"github.com/mtraver/rpi-ir-remote/auth"
 	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
@@ -131,11 +131,7 @@ func (h actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func sendCommand(device iotcore.Device, action *ipb.Action) (*cloudiot.SendCommandToDeviceResponse, error) {
 	ctx := context.Background()
-	httpClient, err := google.DefaultClient(ctx, cloudiot.CloudPlatformScope)
-	if err != nil {
-		return nil, err
-	}
-	client, err := cloudiot.New(httpClient)
+	service, err := cloudiot.NewService(ctx, option.WithScopes(cloudiot.CloudiotScope))
 	if err != nil {
 		return nil, err
 	}
@@ -148,5 +144,5 @@ func sendCommand(device iotcore.Device, action *ipb.Action) (*cloudiot.SendComma
 		BinaryData: base64.StdEncoding.EncodeToString(data),
 	}
 
-	return client.Projects.Locations.Registries.Devices.SendCommandToDevice(device.ClientID(), req).Do()
+	return service.Projects.Locations.Registries.Devices.SendCommandToDevice(device.ClientID(), req).Do()
 }
