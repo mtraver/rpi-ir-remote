@@ -180,7 +180,7 @@ func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
 	if token := client.Connect(); !token.WaitTimeout(waitDur) {
 		return nil, fmt.Errorf("MQTT connection attempt timed out after %v", waitDur)
 	} else if token.Error() != nil {
-		return nil, fmt.Errorf("Failed to connect to MQTT server: %v", token.Error())
+		return nil, fmt.Errorf("Failed to connect to MQTT broker: %v", token.Error())
 	}
 
 	return client, nil
