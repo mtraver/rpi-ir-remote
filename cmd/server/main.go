@@ -156,6 +156,13 @@ func onConnect(device iotcore.Device, opts *mqtt.ClientOptions) error {
 	return nil
 }
 
+func onConnectionLost(device iotcore.Device, opts *mqtt.ClientOptions) error {
+	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
+		log.Printf("Connection to MQTT broker lost: %v", err)
+	})
+	return nil
+}
+
 func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
 	certsFile, err := os.Open(caCerts)
 	if err != nil {
@@ -163,7 +170,7 @@ func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
 	}
 	defer certsFile.Close()
 
-	client, err := device.NewClient(iotcore.DefaultBroker, certsFile, iotcore.CacheJWT(60*time.Minute), onConnect)
+	client, err := device.NewClient(iotcore.DefaultBroker, certsFile, iotcore.CacheJWT(60*time.Minute), onConnect, onConnectionLost)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to make MQTT client: %v", err)
 	}
