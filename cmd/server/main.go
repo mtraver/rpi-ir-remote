@@ -221,7 +221,8 @@ func main() {
 		log.Fatalf("Failed to parse config file %s: %v", configFilePath, err)
 	}
 
-	// If an MQTT device config is given, connect to MQTT and subscribe to the command topic.
+	// If an MQTT device config was given, connect to the MQTT broker. In the connect handler
+	// we'll subscribe to the commands topic.
 	if deviceFilePath != "" {
 		device, err := parseDeviceConfig(deviceFilePath)
 		if err != nil {
@@ -271,14 +272,16 @@ func main() {
 		})
 	}
 
-	// TODO(mtraver) If we're using MQTT we shouldn't start the API HTTP server.
-	go func() {
-		log.Printf("API server listening on port %v", config.Port)
-		if err := http.ListenAndServe(fmt.Sprintf(":%v", config.Port), apiMux); err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
-	}()
+	// If an MQTT device config was not given, start the API HTTP server.
+	if deviceFilePath == "" {
+		go func() {
+			log.Printf("API server listening on port %v", config.Port)
+			if err := http.ListenAndServe(fmt.Sprintf(":%v", config.Port), apiMux); err != nil {
+				log.Println(err)
+				os.Exit(1)
+			}
+		}()
+	}
 
 	log.Printf("Web UI server listening on port %v", config.WebUIPort)
 	if err := http.ListenAndServe(fmt.Sprintf(":%v", config.WebUIPort), webuiMux); err != nil {
