@@ -36,12 +36,19 @@ var (
 	caCerts        string
 
 	templates = template.Must(template.New("index").Parse(indexTemplate))
+
+	// TODO(mtraver) Get supported remotes from protos given on the command line
+	remotes = make(map[string]remote.Remote)
 )
 
 func init() {
 	flag.StringVar(&configFilePath, "config", "", "path to config file")
 	flag.StringVar(&deviceFilePath, "device", "", "path to a file containing a JSON-encoded Device struct (see github.com/mtraver/iotcore)")
 	flag.StringVar(&caCerts, "cacerts", "", "Path to a set of trustworthy CA certs.\nDownload Google's from https://pki.google.com/roots.pem.")
+
+	// TODO(mtraver) Get supported remotes from protos given on the command line
+	r := cambridgecxacn.New()
+	remotes[r.Name] = r
 }
 
 type irRemoteRequest struct {
@@ -125,17 +132,32 @@ func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func commandHandler(client mqtt.Client, msg mqtt.Message) {
-	// TODO(mtraver) Actually handle the message.
 	msg.Ack()
 
 	var action ipb.Action
 	err := proto.Unmarshal(msg.Payload(), &action)
 	if err != nil {
-		log.Printf("Failed to unmarshal Action: %v", err)
+		log.Printf("commandHandler: failed to unmarshal Action: %v", err)
 		return
 	}
 
 	log.Printf("commandHandler: topic: %q, action: %v", msg.Topic(), action)
+
+	if action.GetRemoteId() == "" || action.GetCommand() == "" {
+		log.Printf("commandHandler: remote ID and/or command empty")
+		return
+	}
+
+	r, ok := remotes[action.GetRemoteId()]
+	if !ok {
+		log.Printf("commandHandler: no remote with ID %q", action.GetRemoteId())
+		return
+	}
+
+	if err := r.Send(action.GetCommand()); err != nil {
+		log.Printf("commandHandler: failed to send command %q to %q: %v", action.GetCommand(), r.Name, err)
+		return
+	}
 }
 
 func onConnect(device iotcore.Device, opts *mqtt.ClientOptions) error {
@@ -223,6 +245,7 @@ func main() {
 		}()
 	}
 
+	// TODO(mtraver) Get supported remotes from protos given on the command line
 	r := cambridgecxacn.New()
 
 	webuiMux := http.NewServeMux()
