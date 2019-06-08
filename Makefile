@@ -30,6 +30,7 @@ web:
 .PHONY: proto
 proto:
 	protoc --go_out=irremotepb irremote.proto
+	protoc --go_out=. cmd/server/configpb/config.proto
 
 clean:
 	rm -rf $(OUT_DIR)

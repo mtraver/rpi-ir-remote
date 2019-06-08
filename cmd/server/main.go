@@ -20,12 +20,16 @@ import (
 	"github.com/mtraver/iotcore"
 
 	serverconfig "github.com/mtraver/rpi-ir-remote/cmd/server/config"
+	cpb "github.com/mtraver/rpi-ir-remote/cmd/server/configpb"
 	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
 	"github.com/mtraver/rpi-ir-remote/remote"
 	"github.com/mtraver/rpi-ir-remote/remote/cambridgecxacn"
 )
 
 const (
+	defaultAPIPort   = 9090
+	defaultWebUIPort = 8080
+
 	volumeIncMax   = 5
 	volumeIncDelay = 0.3
 )
@@ -58,7 +62,7 @@ type irRemoteRequest struct {
 
 type irsendHandler struct {
 	Remote     remote.Remote
-	Config     serverconfig.Config
+	Config     cpb.Config
 	Cmd        string
 	CheckToken bool
 }
@@ -76,7 +80,7 @@ func (h irsendHandler) checkToken(r *http.Request) error {
 			return err
 		}
 
-		if req.Token != h.Config.Token {
+		if req.Token != h.Config.GetToken() {
 			return fmt.Errorf("irremote: bad token")
 		}
 	} else {
@@ -109,7 +113,7 @@ func (h irsendHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 type indexHandler struct {
 	Remote remote.Remote
-	Config serverconfig.Config
+	Config cpb.Config
 }
 
 func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +124,7 @@ func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	data := struct {
 		Remote  remote.Remote
-		Config  serverconfig.Config
+		Config  cpb.Config
 		FunFact string
 	}{
 		Remote:  h.Remote,
@@ -275,16 +279,26 @@ func main() {
 	// If an MQTT device config was not given, start the API HTTP server.
 	if deviceFilePath == "" {
 		go func() {
-			log.Printf("API server listening on port %v", config.Port)
-			if err := http.ListenAndServe(fmt.Sprintf(":%v", config.Port), apiMux); err != nil {
+			port := config.GetPort()
+			if port == 0 {
+				port = defaultAPIPort
+			}
+
+			log.Printf("API server listening on port %v", port)
+			if err := http.ListenAndServe(fmt.Sprintf(":%v", port), apiMux); err != nil {
 				log.Println(err)
 				os.Exit(1)
 			}
 		}()
 	}
 
-	log.Printf("Web UI server listening on port %v", config.WebUIPort)
-	if err := http.ListenAndServe(fmt.Sprintf(":%v", config.WebUIPort), webuiMux); err != nil {
+	port := config.GetWebuiPort()
+	if port == 0 {
+		port = defaultWebUIPort
+	}
+
+	log.Printf("Web UI server listening on port %v", port)
+	if err := http.ListenAndServe(fmt.Sprintf(":%v", port), webuiMux); err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}

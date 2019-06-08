@@ -1,0 +1,9 @@
+syntax = "proto3";
+package config;
+option go_package = "configpb";
+
+message Config {
+  string token = 1;
+  int32 port = 2;
+  int32 webui_port = 3;
+}
