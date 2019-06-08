@@ -115,14 +115,13 @@ func (h actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The request and JWT are now validated. Send the Action to the device.
-	d := iotcore.Device{
+	lg.Infof("Sending Action to %q: %v", claims.Device, action)
+	resp, err := sendCommand(iotcore.Device{
 		ProjectID:  h.ProjectID,
 		RegistryID: h.RegistryID,
 		DeviceID:   claims.Device,
 		Region:     h.Region,
-	}
-
-	resp, err := sendCommand(d, action)
+	}, action)
 	lg.Infof("SendCommandToDeviceResponse: %v", resp)
 	if err != nil {
 		lg.Errorf("Failed to send command to device: %v", err)
