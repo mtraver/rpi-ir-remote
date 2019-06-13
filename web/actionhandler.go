@@ -122,9 +122,9 @@ func (h actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		DeviceID:   claims.Device,
 		Region:     h.Region,
 	}, action)
-	lg.Infof("SendCommandToDeviceResponse: %v", resp)
-	if err != nil {
-		lg.Errorf("Failed to send command to device: %v", err)
+
+	if err != nil || resp.HTTPStatusCode != http.StatusOK {
+		lg.Errorf("Failed to send command to device. Error: %q Response: %v", err, resp)
 	}
 }
 
