@@ -16,6 +16,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/mtraver/iotcore"
 
@@ -23,7 +24,6 @@ import (
 	cpb "github.com/mtraver/rpi-ir-remote/cmd/server/configpb"
 	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
 	"github.com/mtraver/rpi-ir-remote/remote"
-	"github.com/mtraver/rpi-ir-remote/remote/cambridgecxacn"
 )
 
 const (
@@ -41,8 +41,7 @@ var (
 
 	templates = template.Must(template.New("index").Parse(indexTemplate))
 
-	// TODO(mtraver) Get supported remotes from protos given on the command line
-	remotes = make(map[string]remote.Remote)
+	remotes = make(map[string]ipb.Remote)
 )
 
 func init() {
@@ -50,9 +49,19 @@ func init() {
 	flag.StringVar(&deviceFilePath, "device", "", "path to a file containing a JSON-encoded Device struct (see github.com/mtraver/iotcore)")
 	flag.StringVar(&caCerts, "cacerts", "", "Path to a set of trustworthy CA certs.\nDownload Google's from https://pki.google.com/roots.pem.")
 
-	// TODO(mtraver) Get supported remotes from protos given on the command line
-	r := cambridgecxacn.New()
-	remotes[r.Name] = r
+	flag.Usage = func() {
+		message := `usage: server [options] remote_proto [remote_proto [remote_proto ...]]:
+
+Positional arguments (required):
+  remote_proto
+	path to file containing a JSON-encoded remote proto
+
+Options:
+`
+
+		fmt.Fprintf(flag.CommandLine.Output(), message)
+		flag.PrintDefaults()
+	}
 }
 
 type irRemoteRequest struct {
@@ -61,7 +70,7 @@ type irRemoteRequest struct {
 }
 
 type irsendHandler struct {
-	Remote     remote.Remote
+	Remote     ipb.Remote
 	Config     cpb.Config
 	Cmd        string
 	CheckToken bool
@@ -101,7 +110,7 @@ func (h irsendHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Received request: %v %v", h.Remote.Name, h.Cmd)
 
-	if err := h.Remote.Send(h.Cmd); err != nil {
+	if err := remote.Send(h.Remote, h.Cmd); err != nil {
 		log.Printf("Failed to send command %q to %q: %v", h.Cmd, h.Remote.Name, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -112,8 +121,8 @@ func (h irsendHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type indexHandler struct {
-	Remote remote.Remote
-	Config cpb.Config
+	Remotes map[string]ipb.Remote
+	Config  cpb.Config
 }
 
 func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -123,11 +132,11 @@ func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Remote  remote.Remote
+		Remotes map[string]ipb.Remote
 		Config  cpb.Config
 		FunFact string
 	}{
-		Remote:  h.Remote,
+		Remotes: h.Remotes,
 		Config:  h.Config,
 		FunFact: funFacts[rand.Intn(len(funFacts))],
 	}
@@ -158,7 +167,7 @@ func commandHandler(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	if err := r.Send(action.GetCommand()); err != nil {
+	if err := remote.Send(r, action.GetCommand()); err != nil {
 		log.Printf("commandHandler: failed to send command %q to %q: %v", action.GetCommand(), r.Name, err)
 		return
 	}
@@ -220,9 +229,31 @@ func main() {
 		os.Exit(2)
 	}
 
+	if len(flag.Args()) < 1 {
+		fmt.Fprintf(flag.CommandLine.Output(), "At least one remote proto must be given\n")
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	// Parse config.
 	config, err := serverconfig.Load(configFilePath)
 	if err != nil {
 		log.Fatalf("Failed to parse config file %s: %v", configFilePath, err)
+	}
+
+	// Parse remote protos.
+	for _, rp := range flag.Args() {
+		file, err := os.Open(rp)
+		if err != nil {
+			log.Fatalf("Failed to open remote proto %s: %v", rp, err)
+		}
+		defer file.Close()
+
+		var r ipb.Remote
+		if err := jsonpb.Unmarshal(file, &r); err != nil {
+			log.Fatalf("Failed to parse remote proto %s: %v", rp, err)
+		}
+		remotes[r.Name] = r
 	}
 
 	// If an MQTT device config was given, connect to the MQTT broker. In the connect handler
@@ -250,30 +281,29 @@ func main() {
 		}()
 	}
 
-	// TODO(mtraver) Get supported remotes from protos given on the command line
-	r := cambridgecxacn.New()
-
 	webuiMux := http.NewServeMux()
 	webuiMux.Handle("/", indexHandler{
-		Remote: r,
-		Config: config,
+		Remotes: remotes,
+		Config:  config,
 	})
 
 	apiMux := http.NewServeMux()
-	for name := range r.Commands {
-		apiMux.Handle(fmt.Sprintf("/%v", name), irsendHandler{
-			Remote:     r,
-			Config:     config,
-			Cmd:        name,
-			CheckToken: true,
-		})
+	for _, r := range remotes {
+		for _, code := range r.Code {
+			apiMux.Handle(fmt.Sprintf("/%v/%v", r.Name, code.Name), irsendHandler{
+				Remote:     r,
+				Config:     config,
+				Cmd:        code.Name,
+				CheckToken: true,
+			})
 
-		webuiMux.Handle(fmt.Sprintf("/%v", name), irsendHandler{
-			Remote:     r,
-			Config:     config,
-			Cmd:        name,
-			CheckToken: false,
-		})
+			webuiMux.Handle(fmt.Sprintf("/%v/%v", r.Name, code.Name), irsendHandler{
+				Remote:     r,
+				Config:     config,
+				Cmd:        code.Name,
+				CheckToken: false,
+			})
+		}
 	}
 
 	// If an MQTT device config was not given, start the API HTTP server.

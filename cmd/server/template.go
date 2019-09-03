@@ -19,10 +19,15 @@ const indexTemplate = `
 		<div class="container mt-1">
 			<div class="col-sm text-center">
 				<p><b>Fun fact!</b> {{ .FunFact }}</p>
-				<p>Remote: {{ .Remote.Name }}</p>
+				{{ range $remoteName, $remote := .Remotes }}
+					<p><b>{{ $remoteName }}</b></p>
 
-				{{ range $name, $command := .Remote.Commands }}
-					<button type="button" class="btn btn-primary" name="{{ $name }}" id="button-{{ $name }}">{{ $name }}</button>
+					{{ range $i, $code := $remote.Code }}
+						<button type="button" class="btn btn-primary" name="{{ $remoteName }}/{{ $code.Name }}" id="button-{{ $remoteName }}-{{ $code.Name }}">{{ $code.Name }}</button>
+						<br>
+						<br>
+					{{ end }}
+					<br>
 					<br>
 					<br>
 				{{ end }}

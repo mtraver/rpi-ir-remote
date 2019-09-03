@@ -13,3 +13,13 @@ message Request {
   string jwt = 2;
   Action action = 3;
 }
+
+message Code {
+  string name = 1;
+  string code = 2;
+}
+
+message Remote {
+  string name = 1;
+  repeated Code code = 2;
+}

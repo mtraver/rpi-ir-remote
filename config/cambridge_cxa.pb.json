@@ -1,0 +1,33 @@
+{
+  "name": "cambridge_cxa",
+  "code": [
+    {
+      "name": "off",
+      "code": "KEY_POWER_OFF"
+    },
+    {
+      "name": "music",
+      "code": "KEY_SOURCE_D1"
+    },
+    {
+      "name": "tv",
+      "code": "KEY_SOURCE_D2"
+    },
+    {
+      "name": "volup",
+      "code": "KEY_VOLUMEUP"
+    },
+    {
+      "name": "voldown",
+      "code": "KEY_VOLUMEDOWN"
+    },
+    {
+      "name": "direct",
+      "code": "KEY_DIRECT"
+    },
+    {
+      "name": "lcd",
+      "code": "KEY_LCD"
+    }
+  ]
+}

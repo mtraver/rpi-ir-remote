@@ -8,8 +8,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/golang/protobuf/jsonpb"
+	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
 	"github.com/mtraver/rpi-ir-remote/remote"
-	"github.com/mtraver/rpi-ir-remote/remote/cambridgecxacn"
 )
 
 var (
@@ -18,39 +19,47 @@ var (
 	sendCommand = flag.NewFlagSet("send", flag.ExitOnError)
 	repeat      int
 
-	remotes = []remote.Remote{cambridgecxacn.New()}
+	remotes = []ipb.Remote{}
 )
 
 func init() {
 	listCommand.Usage = func() {
-		fmt.Println(`list: list available remotes and their commands
+		fmt.Fprintln(flag.CommandLine.Output(), `list: list available remotes and their commands
   usage: list`)
 		listCommand.PrintDefaults()
 	}
 
 	sendCommand.IntVar(&repeat, "repeat", 0, "number of times to repeat command")
 	sendCommand.Usage = func() {
-		fmt.Println(`send: send an IR code
+		fmt.Fprintln(flag.CommandLine.Output(), `send: send an IR code
   usage: send [options] remote command`)
 		sendCommand.PrintDefaults()
 	}
 
 	flag.Usage = func() {
-		fmt.Printf("usage: %s {list,send} [options] [args]\n", filepath.Base(os.Args[0]))
-		fmt.Println("\nCommands:")
+		message := `usage: %s remote_proto {list,send} [options] [args]
+
+Positional arguments (required):
+  remote_proto
+	path to file containing a JSON-encoded remote proto
+
+Commands:
+`
+
+		fmt.Fprintf(flag.CommandLine.Output(), message, filepath.Base(os.Args[0]))
 		listCommand.Usage()
 		sendCommand.Usage()
 	}
 }
 
-func getRemote(name string) (remote.Remote, error) {
+func getRemote(name string) (ipb.Remote, error) {
 	for _, r := range remotes {
 		if r.Name == name {
 			return r, nil
 		}
 	}
 
-	return remote.Remote{}, fmt.Errorf("cli: no remote with name %q", name)
+	return ipb.Remote{}, fmt.Errorf("cli: no remote with name %q", name)
 }
 
 func list() {
@@ -58,7 +67,7 @@ func list() {
 
 	strs := make([]string, len(remotes))
 	for i, r := range remotes {
-		strs[i] = strings.TrimRight(fmt.Sprintf("%v", r), "\n")
+		strs[i] = strings.TrimRight(remote.String(r), "\n")
 	}
 
 	fmt.Println(strings.Join(strs, "\n\n"))
@@ -71,27 +80,42 @@ func send(remoteName, commandName string, repeat int) {
 		os.Exit(2)
 	}
 
-	if err := r.Send(commandName); err != nil {
+	if err := remote.Send(r, commandName); err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(1)
 	}
 }
 
 func main() {
-	if len(os.Args) < 2 {
+	if len(os.Args) < 3 {
 		flag.Usage()
 		os.Exit(2)
 	}
 
-	switch subcmd := os.Args[1]; subcmd {
+	// Parse remote proto.
+	rp := os.Args[1]
+	file, err := os.Open(rp)
+	if err != nil {
+		fmt.Printf("Failed to open remote proto %s: %v\n", rp, err)
+		os.Exit(1)
+	}
+	defer file.Close()
+	var r ipb.Remote
+	if err := jsonpb.Unmarshal(file, &r); err != nil {
+		fmt.Printf("Failed to parse remote proto %s: %v\n", rp, err)
+		os.Exit(1)
+	}
+	remotes = append(remotes, r)
+
+	switch subcmd := os.Args[2]; subcmd {
 	case "list":
-		if err := listCommand.Parse(os.Args[2:]); err == flag.ErrHelp {
+		if err := listCommand.Parse(os.Args[3:]); err == flag.ErrHelp {
 			listCommand.Usage()
 		}
 
 		list()
 	case "send":
-		sendCommand.Parse(os.Args[2:])
+		sendCommand.Parse(os.Args[3:])
 
 		if sendCommand.NArg() != 2 {
 			sendCommand.Usage()
