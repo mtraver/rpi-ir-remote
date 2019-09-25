@@ -1,0 +1,17 @@
+{{ define "status" }}
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>RPi IR Remote | Status</title>
+  </head>
+  <body>
+    <ul>
+      {{ range $record := . }}
+        <li>{{ if $record.Success }}OK{{ else }}FAIL{{ end }} | {{ RFC3339 $record.Timestamp }} | {{ $record.Action }}</li>
+      {{ end }}
+    </ul>
+  </body>
+</html>
+{{ end }}

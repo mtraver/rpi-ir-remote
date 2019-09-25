@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/golang/protobuf/jsonpb"
@@ -123,9 +124,19 @@ func (h actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Region:     h.Region,
 	}, action)
 
-	if err != nil || resp.HTTPStatusCode != http.StatusOK {
+	success := err == nil && resp.HTTPStatusCode == http.StatusOK
+	if !success {
 		lg.Errorf("Failed to send command to device. Error: %q Response: %v", err, resp)
 	}
+
+	actionLogMux.Lock()
+	defer actionLogMux.Unlock()
+
+	actionLog = append(actionLog, actionRecord{
+		Timestamp: time.Now(),
+		Success:   success,
+		Action:    action,
+	})
 }
 
 func sendCommand(device iotcore.Device, action *ipb.Action) (*cloudiot.SendCommandToDeviceResponse, error) {

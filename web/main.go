@@ -3,12 +3,27 @@ package main
 import (
 	"crypto/ecdsa"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"sync"
+	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
+)
+
+type actionRecord struct {
+	Timestamp time.Time
+	Success   bool
+	Action    *ipb.Action
+}
+
+var (
+	actionLog    = make([]actionRecord, 0, 16)
+	actionLogMux sync.Mutex
 )
 
 func mustGetenv(varName string) string {
@@ -43,12 +58,22 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	templates := template.Must(template.New("status.html").Funcs(
+		template.FuncMap{
+			"RFC3339": func(t time.Time) string {
+				return t.Format(time.RFC3339)
+			},
+		}).ParseGlob("web/templates/*"))
+
 	http.HandleFunc("/", rootHandler)
 	http.Handle("/action", actionHandler{
 		ProjectID:  mustGetenv("GOOGLE_CLOUD_PROJECT"),
 		RegistryID: mustGetenv("IOTCORE_REGISTRY"),
 		Region:     mustGetenv("IOTCORE_REGION"),
 		PublicKey:  mustParseKey(mustGetenv("PUB_KEY_PATH")),
+	})
+	http.Handle("/status", statusHandler{
+		Template: templates,
 	})
 
 	port := os.Getenv("PORT")
