@@ -18,7 +18,8 @@ const indexTemplate = `
 	<body>
 		<div class="container mt-1">
 			<div class="col-sm text-center">
-				<p><b>Fun fact!</b> {{ .FunFact }}</p>
+				{{ $numRemotes := len .Remotes }}
+				{{ $i := 0 }}
 				{{ range $remoteName, $remote := .Remotes }}
 					<p><b>{{ $remoteName }}</b></p>
 
@@ -27,10 +28,17 @@ const indexTemplate = `
 						<br>
 						<br>
 					{{ end }}
-					<br>
-					<br>
-					<br>
+
+					{{ if lt $i (sub $numRemotes 1) }}
+						<br>
+						<br>
+						<br>
+					{{ end }}
+
+					{{ $i = add $i 1 }}
 				{{ end }}
+
+				<p style="font-size: 0.75em;"><b>Fun fact!</b> {{ .FunFact }}</p>
 			</div>
 		</div>
 	</body>

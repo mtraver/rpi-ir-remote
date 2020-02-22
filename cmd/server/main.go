@@ -39,7 +39,15 @@ var (
 	deviceFilePath string
 	caCerts        string
 
-	templates = template.Must(template.New("index").Parse(indexTemplate))
+	templates = template.Must(template.New("index").Funcs(
+		map[string]interface{}{
+			"add": func(a, b int) int {
+				return a + b
+			},
+			"sub": func(a, b int) int {
+				return a - b
+			},
+		}).Parse(indexTemplate))
 
 	remotes = make(map[string]ipb.Remote)
 )
