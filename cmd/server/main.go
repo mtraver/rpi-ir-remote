@@ -39,16 +39,6 @@ var (
 	deviceFilePath string
 	caCerts        string
 
-	templates = template.Must(template.New("index").Funcs(
-		map[string]interface{}{
-			"add": func(a, b int) int {
-				return a + b
-			},
-			"sub": func(a, b int) int {
-				return a - b
-			},
-		}).Parse(indexTemplate))
-
 	remotes = make(map[string]ipb.Remote)
 )
 
@@ -129,8 +119,9 @@ func (h irsendHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type indexHandler struct {
-	Remotes map[string]ipb.Remote
-	Config  cpb.Config
+	Templates *template.Template
+	Remotes   map[string]ipb.Remote
+	Config    cpb.Config
 }
 
 func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +140,7 @@ func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		FunFact: funFacts[rand.Intn(len(funFacts))],
 	}
 
-	templates.ExecuteTemplate(w, "index", data)
+	h.Templates.ExecuteTemplate(w, "index", data)
 }
 
 func commandHandler(client mqtt.Client, msg mqtt.Message) {
@@ -230,6 +221,16 @@ func mqttConnect(device iotcore.Device) (mqtt.Client, error) {
 }
 
 func main() {
+	templates := template.Must(template.New("index").Funcs(
+		map[string]interface{}{
+			"add": func(a, b int) int {
+				return a + b
+			},
+			"sub": func(a, b int) int {
+				return a - b
+			},
+		}).Parse(indexTemplate))
+
 	flag.Parse()
 	if deviceFilePath != "" && caCerts == "" {
 		fmt.Fprintf(flag.CommandLine.Output(), "-cacerts is required when -device is given\n")
@@ -291,8 +292,9 @@ func main() {
 
 	webuiMux := http.NewServeMux()
 	webuiMux.Handle("/", indexHandler{
-		Remotes: remotes,
-		Config:  config,
+		Templates: templates,
+		Remotes:   remotes,
+		Config:    config,
 	})
 
 	apiMux := http.NewServeMux()
