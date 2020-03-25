@@ -22,6 +22,10 @@
       "code": "KEY_VOLUMEDOWN"
     },
     {
+      "name": "mute",
+      "code": "KEY_MUTE"
+    },
+    {
       "name": "direct",
       "code": "KEY_DIRECT"
     },
