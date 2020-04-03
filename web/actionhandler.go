@@ -33,23 +33,19 @@ func (h actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lg, err := gaelog.New(r)
-	if err != nil {
-		lg.Errorf("%v", err)
-	}
-	defer lg.Close()
+	ctx := r.Context()
 
 	var req ipb.Request
-	err = jsonpb.Unmarshal(r.Body, &req)
+	err := jsonpb.Unmarshal(r.Body, &req)
 	defer r.Body.Close()
 	if err != nil {
-		lg.Errorf("Failed to unmarshal Request: %v", err)
+		gaelog.Errorf(ctx, "Failed to unmarshal Request: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	if req.GetAction() == nil || req.GetDeviceId() == "" || req.GetJwt() == "" {
-		lg.Errorf("Action, device ID, and/or JWT empty")
+		gaelog.Errorf(ctx, "Action, device ID, and/or JWT empty")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -64,39 +60,39 @@ func (h actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		lg.Errorf("Failed to parse JWT: %v", err)
+		gaelog.Errorf(ctx, "Failed to parse JWT: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	claims, ok := token.Claims.(*auth.Claims)
 	if !ok {
-		lg.Errorf("Failed to get claims")
+		gaelog.Errorf(ctx, "Failed to get claims")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	if !token.Valid {
-		lg.Warningf("Invalid JWT")
+		gaelog.Warningf(ctx, "Invalid JWT")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	// Make sure all custom claims were given.
 	if claims.Device == "" {
-		lg.Warningf("Device claim not present or empty")
+		gaelog.Warningf(ctx, "Device claim not present or empty")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	if claims.ActionHash == "" {
-		lg.Warningf("ActionHash claim not present or empty")
+		gaelog.Warningf(ctx, "ActionHash claim not present or empty")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	// Make sure the device in the request matches the claims.
 	if req.GetDeviceId() != claims.Device {
-		lg.Warningf("Devices do not match. Request: %q, JWT: %q", req.GetDeviceId(), claims.Device)
+		gaelog.Warningf(ctx, "Devices do not match. Request: %q, JWT: %q", req.GetDeviceId(), claims.Device)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -105,18 +101,18 @@ func (h actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	action := req.GetAction()
 	sha, err := auth.Sum256(action)
 	if err != nil {
-		lg.Errorf("Failed to get hash of Action: %v", err)
+		gaelog.Errorf(ctx, "Failed to get hash of Action: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	if sha != claims.ActionHash {
-		lg.Warningf("Action hashes do not match. Request: %q, JWT: %q", sha, claims.ActionHash)
+		gaelog.Warningf(ctx, "Action hashes do not match. Request: %q, JWT: %q", sha, claims.ActionHash)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	// The request and JWT are now validated. Send the Action to the device.
-	lg.Infof("Sending Action to %q: %v", claims.Device, action)
+	gaelog.Infof(ctx, "Sending Action to %q: %v", claims.Device, action)
 	resp, err := sendCommand(iotcore.Device{
 		ProjectID:  h.ProjectID,
 		RegistryID: h.RegistryID,
@@ -126,7 +122,7 @@ func (h actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	success := err == nil && resp.HTTPStatusCode == http.StatusOK
 	if !success {
-		lg.Errorf("Failed to send command to device. Error: %q Response: %v", err, resp)
+		gaelog.Errorf(ctx, "Failed to send command to device. Error: %q Response: %v", err, resp)
 	}
 
 	actionLogMux.Lock()

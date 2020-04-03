@@ -12,6 +12,7 @@ import (
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/mtraver/gaelog"
 	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
 )
 
@@ -65,14 +66,16 @@ func main() {
 			},
 		}).ParseGlob("web/templates/*"))
 
-	http.HandleFunc("/", rootHandler)
-	http.Handle("/action", actionHandler{
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/", rootHandler)
+	mux.Handle("/action", actionHandler{
 		ProjectID:  mustGetenv("GOOGLE_CLOUD_PROJECT"),
 		RegistryID: mustGetenv("IOTCORE_REGISTRY"),
 		Region:     mustGetenv("IOTCORE_REGION"),
 		PublicKey:  mustParseKey(mustGetenv("PUB_KEY_PATH")),
 	})
-	http.Handle("/status", statusHandler{
+	mux.Handle("/status", statusHandler{
 		Template: templates,
 	})
 
@@ -83,5 +86,5 @@ func main() {
 	}
 
 	log.Printf("Listening on port %s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), gaelog.Wrap(mux)))
 }
