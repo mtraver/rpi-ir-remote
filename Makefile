@@ -29,8 +29,14 @@ web:
 
 .PHONY: proto
 proto:
-	protoc --go_out=. irremotepb/irremote.proto
-	protoc --go_out=. cmd/server/configpb/config.proto
+	# Get protoc from https://github.com/protocolbuffers/protobuf/releases
+	# Install the Go and Go gRPC plugins like this:
+	#   go install google.golang.org/protobuf/cmd/protoc-gen-go
+	#   go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+	protoc --go_out=module=github.com/mtraver/rpi-ir-remote:. \
+	  irremotepb/irremote.proto
+	protoc --go_out=module=github.com/mtraver/rpi-ir-remote:. \
+	  cmd/server/configpb/config.proto
 
 clean:
 	rm -rf $(OUT_DIR)

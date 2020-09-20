@@ -1,6 +1,6 @@
 syntax = "proto3";
 package irremote;
-option go_package = "irremotepb";
+option go_package = "github.com/mtraver/rpi-ir-remote/irremotepb";
 
 message Action {
   string remote_id = 1;
