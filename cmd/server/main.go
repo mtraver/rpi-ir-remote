@@ -40,6 +40,10 @@ var (
 	caCerts        string
 
 	remotes = make(map[string]ipb.Remote)
+
+	// version is the version of the binary, which should be set on the command line
+	// at build time: go build -ldflags "-X main.version=version-name-here" ...
+	version string
 )
 
 func init() {
@@ -50,6 +54,8 @@ func init() {
 	flag.Usage = func() {
 		message := `usage: server [options] remote_proto [remote_proto [remote_proto ...]]:
 
+Version %s
+
 Positional arguments (required):
   remote_proto
 	path to file containing a JSON-encoded remote proto
@@ -57,7 +63,12 @@ Positional arguments (required):
 Options:
 `
 
-		fmt.Fprintf(flag.CommandLine.Output(), message)
+		v := version
+		if v == "" {
+			v = "unknown"
+		}
+
+		fmt.Fprintf(flag.CommandLine.Output(), message, v)
 		flag.PrintDefaults()
 	}
 }
@@ -130,14 +141,21 @@ func (h indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	v := version
+	if v == "" {
+		v = "unknown"
+	}
+
 	data := struct {
 		Remotes map[string]ipb.Remote
 		Config  cpb.Config
 		FunFact string
+		Version string
 	}{
 		Remotes: h.Remotes,
 		Config:  h.Config,
 		FunFact: funFacts[rand.Intn(len(funFacts))],
+		Version: v,
 	}
 
 	h.Templates.ExecuteTemplate(w, "index", data)

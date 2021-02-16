@@ -1,5 +1,6 @@
 BUILD_ARMV6 := GOOS=linux GOARCH=arm GOARM=6 go build
 BUILD_ARMV7 := GOOS=linux GOARCH=arm GOARM=7 go build
+VERSION_FLAGS := -ldflags "-X main.version=$(shell date +'%Y%m%dt%H%M%S')-$(shell git rev-parse --verify --short HEAD)"
 
 OUT_DIR := out
 
@@ -8,8 +9,8 @@ all: proto server cli makereq web
 .PHONY: server
 server:
 	go build -o $(OUT_DIR)/$@ ./cmd/$@
-	$(BUILD_ARMV7) -o $(OUT_DIR)/armv7/$@ ./cmd/$@
-	$(BUILD_ARMV6) -o $(OUT_DIR)/armv6/$@ ./cmd/$@
+	$(BUILD_ARMV7) $(VERSION_FLAGS) -o $(OUT_DIR)/armv7/$@ ./cmd/$@
+	$(BUILD_ARMV6) $(VERSION_FLAGS) -o $(OUT_DIR)/armv6/$@ ./cmd/$@
 
 .PHONY: cli
 cli:

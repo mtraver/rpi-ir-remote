@@ -39,6 +39,7 @@ const indexTemplate = `
 				{{ end }}
 
 				<p style="font-size: 0.75em;"><b>Fun fact!</b> {{ .FunFact }}</p>
+				<p style="font-size: 0.55em;">version {{ .Version }}</p>
 			</div>
 		</div>
 	</body>
