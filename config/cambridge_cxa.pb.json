@@ -6,8 +6,12 @@
       "code": "KEY_POWER_OFF"
     },
     {
-      "name": "music",
+      "name": "digital audio",
       "code": "KEY_SOURCE_D1"
+    },
+    {
+      "name": "turntable",
+      "code": "KEY_SOURCE_A1"
     },
     {
       "name": "tv",
