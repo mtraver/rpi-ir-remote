@@ -190,7 +190,7 @@ func commandHandler(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-func onConnect(device iotcore.Device, opts *mqtt.ClientOptions) error {
+func onConnect(device *iotcore.Device, opts *mqtt.ClientOptions) error {
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		log.Printf("Connected to MQTT broker")
 
@@ -208,7 +208,7 @@ func onConnect(device iotcore.Device, opts *mqtt.ClientOptions) error {
 	return nil
 }
 
-func onConnectionLost(device iotcore.Device, opts *mqtt.ClientOptions) error {
+func onConnectionLost(device *iotcore.Device, opts *mqtt.ClientOptions) error {
 	opts.SetConnectionLostHandler(func(client mqtt.Client, err error) {
 		log.Printf("Connection to MQTT broker lost: %v", err)
 	})
