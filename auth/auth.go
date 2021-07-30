@@ -5,7 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 	"github.com/golang/protobuf/proto"
 )
 

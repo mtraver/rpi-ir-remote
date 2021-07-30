@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 	"github.com/golang/protobuf/jsonpb"
 
 	"github.com/mtraver/rpi-ir-remote/auth"

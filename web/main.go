@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt"
 	"github.com/mtraver/gaelog"
 	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
 )
