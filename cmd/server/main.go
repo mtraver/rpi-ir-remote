@@ -16,9 +16,9 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/mtraver/iotcore"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	serverconfig "github.com/mtraver/rpi-ir-remote/cmd/server/config"
 	cpb "github.com/mtraver/rpi-ir-remote/cmd/server/configpb"
@@ -270,14 +270,13 @@ func main() {
 
 	// Parse remote protos.
 	for _, rp := range flag.Args() {
-		file, err := os.Open(rp)
+		rawRP, err := os.ReadFile(rp)
 		if err != nil {
-			log.Fatalf("Failed to open remote proto %s: %v", rp, err)
+			log.Fatalf("Failed to read remote proto %s: %v", rp, err)
 		}
-		defer file.Close()
 
 		var r ipb.Remote
-		if err := jsonpb.Unmarshal(file, &r); err != nil {
+		if err := protojson.Unmarshal(rawRP, &r); err != nil {
 			log.Fatalf("Failed to parse remote proto %s: %v", rp, err)
 		}
 		remotes[r.Name] = r

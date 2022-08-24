@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"
 	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
 	"github.com/mtraver/rpi-ir-remote/remote"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var (
@@ -94,14 +94,14 @@ func main() {
 
 	// Parse remote proto.
 	rp := os.Args[1]
-	file, err := os.Open(rp)
+	rawRP, err := os.ReadFile(rp)
 	if err != nil {
 		fmt.Printf("Failed to open remote proto %s: %v\n", rp, err)
 		os.Exit(1)
 	}
-	defer file.Close()
+
 	var r ipb.Remote
-	if err := jsonpb.Unmarshal(file, &r); err != nil {
+	if err := protojson.Unmarshal(rawRP, &r); err != nil {
 		fmt.Printf("Failed to parse remote proto %s: %v\n", rp, err)
 		os.Exit(1)
 	}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // Claims is the set of claims, standard and custom additions, that are used in JWTs that authorize Actions.

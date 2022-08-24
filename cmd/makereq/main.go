@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/mtraver/rpi-ir-remote/auth"
 	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
@@ -99,10 +99,9 @@ func main() {
 		Action:   action,
 	}
 
-	marshaler := jsonpb.Marshaler{}
-	s, err := marshaler.MarshalToString(req)
+	b, err := protojson.Marshal(req)
 	if err != nil {
 		fatalf("Failed to marshal request to JSON: %v", err)
 	}
-	fmt.Println(s)
+	fmt.Println(string(b))
 }

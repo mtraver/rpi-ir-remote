@@ -6,9 +6,8 @@ import (
 	"os/user"
 	filepath "path"
 
-	"github.com/golang/protobuf/jsonpb"
-
 	cpb "github.com/mtraver/rpi-ir-remote/cmd/server/configpb"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var (
@@ -27,14 +26,13 @@ func init() {
 }
 
 func unmarshal(path string) (cpb.Config, error) {
-	file, err := os.Open(path)
+	rawConfig, err := os.ReadFile(path)
 	if err != nil {
 		return cpb.Config{}, err
 	}
-	defer file.Close()
 
 	var config cpb.Config
-	err = jsonpb.Unmarshal(file, &config)
+	err = protojson.Unmarshal(rawConfig, &config)
 	return config, err
 }
 

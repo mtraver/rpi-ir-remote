@@ -5,16 +5,17 @@ import (
 	"crypto/ecdsa"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt"
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
 	"github.com/mtraver/gaelog"
 	"github.com/mtraver/iotcore"
 	cloudiot "google.golang.org/api/cloudiot/v1"
 	"google.golang.org/api/option"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/mtraver/rpi-ir-remote/auth"
 	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
@@ -35,10 +36,16 @@ func (h actionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	var req ipb.Request
-	err := jsonpb.Unmarshal(r.Body, &req)
-	defer r.Body.Close()
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		gaelog.Errorf(ctx, "Failed to read body: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	defer r.Body.Close()
+
+	var req ipb.Request
+	if err := protojson.Unmarshal(body, &req); err != nil {
 		gaelog.Errorf(ctx, "Failed to unmarshal Request: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
