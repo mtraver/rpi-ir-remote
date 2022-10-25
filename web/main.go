@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	"github.com/mtraver/envtools"
 	"github.com/mtraver/gaelog"
 	ipb "github.com/mtraver/rpi-ir-remote/irremotepb"
 )
@@ -26,14 +27,6 @@ var (
 	actionLog    = make([]actionRecord, 0, 16)
 	actionLogMux sync.Mutex
 )
-
-func mustGetenv(varName string) string {
-	val := os.Getenv(varName)
-	if val == "" {
-		log.Fatalf("Environment variable must be set: %v\n", varName)
-	}
-	return val
-}
 
 func mustParseKey(filePath string) *ecdsa.PublicKey {
 	b, err := ioutil.ReadFile(filePath)
@@ -70,10 +63,10 @@ func main() {
 
 	mux.HandleFunc("/", rootHandler)
 	mux.Handle("/action", actionHandler{
-		ProjectID:  mustGetenv("GOOGLE_CLOUD_PROJECT"),
-		RegistryID: mustGetenv("IOTCORE_REGISTRY"),
-		Region:     mustGetenv("IOTCORE_REGION"),
-		PublicKey:  mustParseKey(mustGetenv("PUB_KEY_PATH")),
+		ProjectID:  envtools.MustGetenv("GOOGLE_CLOUD_PROJECT"),
+		RegistryID: envtools.MustGetenv("IOTCORE_REGISTRY"),
+		Region:     envtools.MustGetenv("IOTCORE_REGION"),
+		PublicKey:  mustParseKey(envtools.MustGetenv("PUB_KEY_PATH")),
 	})
 	mux.Handle("/status", statusHandler{
 		Template: templates,
